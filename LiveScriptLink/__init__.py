@@ -55,7 +55,6 @@ class LiveLinkPreferences(bpy.types.AddonPreferences):
         min=0,
         max=59
     )
-    (updater_interval_months, updater_interval_days, updater_interval_hours, updater_interval_minutes) # used to silence linting
 
     def draw(self, context):
         layout = self.layout
