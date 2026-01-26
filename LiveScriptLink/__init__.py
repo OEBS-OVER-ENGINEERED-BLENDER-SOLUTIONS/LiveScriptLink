@@ -14,7 +14,54 @@ import time
 import gpu
 from gpu_extras.batch import batch_for_shader
 
+# Safely import the updater
+from . import addon_updater_ops
+
 # --- CLASSES & PROPS ---
+
+class LiveLinkPreferences(bpy.types.AddonPreferences):
+    bl_idname = __package__
+
+    # Addon updater properties
+    auto_check_update: bpy.props.BoolProperty(
+        name="Auto-check for Update",
+        description="If enabled, auto-check for updates using an interval",
+        default=False,
+    )
+    updater_interval_months: bpy.props.IntProperty(
+        name='Months',
+        description="Number of months between checking for updates",
+        default=0,
+        min=0
+    )
+    updater_interval_days: bpy.props.IntProperty(
+        name='Days',
+        description="Number of days between checking for updates",
+        default=7,
+        min=0,
+        max=31
+    )
+    updater_interval_hours: bpy.props.IntProperty(
+        name='Hours',
+        description="Number of hours between checking for updates",
+        default=0,
+        min=0,
+        max=23
+    )
+    updater_interval_minutes: bpy.props.IntProperty(
+        name='Minutes',
+        description="Number of minutes between checking for updates",
+        default=0,
+        min=0,
+        max=59
+    )
+    (updater_interval_months, updater_interval_days, updater_interval_hours, updater_interval_minutes) # used to silence linting
+
+    def draw(self, context):
+        layout = self.layout
+        
+        # Addon updater UI
+        addon_updater_ops.update_settings_ui(self, context)
 
 class LiveLinkEntry(bpy.types.PropertyGroup):
     """Represents a single file-to-text link."""
@@ -290,6 +337,7 @@ class LIVE_LINK_PT_panel(bpy.types.Panel):
 _handle = None
 
 classes = (
+    LiveLinkPreferences,
     LiveLinkEntry,
     LIVELINK_UL_list,
     LIVELINK_OT_add_link,
@@ -300,6 +348,9 @@ classes = (
 )
 
 def register():
+    # Updater registration
+    addon_updater_ops.register(bl_info)
+
     for cls in classes:
         bpy.utils.register_class(cls)
         
@@ -323,6 +374,9 @@ def register():
     bpy.types.Scene.live_link_active = bpy.props.BoolProperty(default=False, options={'SKIP_SAVE'} )
 
 def unregister():
+    # Updater unregistration
+    addon_updater_ops.unregister()
+
     global _handle
     if _handle:
         try: bpy.types.SpaceTextEditor.draw_handler_remove(_handle, 'WINDOW')
