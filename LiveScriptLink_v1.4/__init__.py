@@ -78,6 +78,10 @@ class LiveLinkEntry(bpy.types.PropertyGroup):
         name="Enabled",
         default=True
     )
+    scheduled_exec_time: bpy.props.FloatProperty(
+        default=-1.0,
+        options={'SKIP_SAVE'}
+    )
 
 class LIVELINK_UL_list(bpy.types.UIList):
     """UI List for managing live links."""
@@ -130,6 +134,38 @@ def draw_callback_px():
 
         batch.draw(shader)
     except: pass
+
+def execute_script(context, link):
+    """Robustly execute the target text block."""
+    text_block = bpy.data.texts.get(link.text_name)
+    if not text_block: return
+
+    # Report starting execution
+    print(f"Live Link: Executing {text_block.name}")
+
+    # Method 1: Try executing via Text Editor operator (most robust for context)
+    area = next((a for a in context.screen.areas if a.type == 'TEXT_EDITOR'), None)
+    if area:
+        try:
+            with context.temp_override(area=area, edit_text=text_block):
+                bpy.ops.text.run_script()
+            return
+        except Exception as e:
+            print(f"Live Link: Operator execution failed: {e}")
+
+    # Method 2: Fallback to exec() with proper globals
+    try:
+        # Prepare globals
+        g = {
+            'bpy': bpy,
+            '__name__': '__main__',
+            '__file__': link.filepath,
+        }
+        exec(compile(text_block.as_string(), text_block.name, 'exec'), g)
+    except Exception as e:
+        print(f"Live Link: Fallback execution failed: {e}")
+        # Optionally report error to UI
+        # context.window_manager.popup_menu(lambda self, context: self.layout.label(text=f"Exec Error: {e}"), title="Execution Failed", icon='ERROR')
 
 # --- OPERATORS ---
 
@@ -187,6 +223,13 @@ class LIVE_LINK_OT_start(bpy.types.Operator):
                 self._last_check_p_time = current_time
                 self.check_all_links(context)
 
+            # Handle scheduled executions
+            for link in scene.live_link_collection:
+                if link.is_active and link.scheduled_exec_time > 0:
+                    if current_time >= link.scheduled_exec_time:
+                        link.scheduled_exec_time = -1.0
+                        execute_script(context, link)
+
             # Redraw indicator
             for area in context.screen.areas:
                 if area.type == 'TEXT_EDITOR': area.tag_redraw()
@@ -219,13 +262,9 @@ class LIVE_LINK_OT_start(bpy.types.Operator):
                 text_block.write(content)
                 
                 if context.scene.live_link_auto_exec:
-                    # Find area for override if possible
-                    area = next((a for a in context.screen.areas if a.type == 'TEXT_EDITOR'), None)
-                    if area:
-                        with context.temp_override(area=area, edit_text=text_block):
-                            bpy.ops.text.run_script()
-                    else:
-                        exec(compile(text_block.as_string(), text_block.name, 'exec'), {})
+                    # Schedule execution
+                    delay = context.scene.live_link_auto_exec_delay
+                    link.scheduled_exec_time = time.time() + delay
         except: pass
 
     def execute(self, context):
@@ -303,7 +342,10 @@ class LIVE_LINK_PT_panel(bpy.types.Panel):
             box.prop_search(item, "text_name", bpy.data, "texts", text="Target Text")
 
         layout.separator()
-        layout.prop(scene, "live_link_auto_exec")
+        row = layout.row(align=True)
+        row.prop(scene, "live_link_auto_exec", icon='PLAY' if scene.live_link_auto_exec else 'REC', text="Auto Exec")
+        if scene.live_link_auto_exec:
+            row.prop(scene, "live_link_auto_exec_delay", text="Delay")
         
         # 3. Settings & Visuals
         box = layout.box()
@@ -357,6 +399,13 @@ def register():
     bpy.types.Scene.live_link_index = bpy.props.IntProperty(default=-1)
     
     bpy.types.Scene.live_link_auto_exec = bpy.props.BoolProperty(name="Auto Execute", default=True)
+    bpy.types.Scene.live_link_auto_exec_delay = bpy.props.FloatProperty(
+        name="Delay", 
+        description="Seconds to wait before executing after a change",
+        default=0.0, 
+        min=0.0, 
+        max=10.0
+    )
     bpy.types.Scene.live_link_show_outline = bpy.props.BoolProperty(name="Show Border", default=True)
     bpy.types.Scene.live_link_border_color = bpy.props.FloatVectorProperty(
         name="Border Color", 
@@ -388,6 +437,7 @@ def unregister():
     del bpy.types.Scene.live_link_collection
     del bpy.types.Scene.live_link_index
     del bpy.types.Scene.live_link_auto_exec
+    del bpy.types.Scene.live_link_auto_exec_delay
     del bpy.types.Scene.live_link_show_outline
     del bpy.types.Scene.live_link_border_color
     del bpy.types.Scene.live_link_outline_thickness
