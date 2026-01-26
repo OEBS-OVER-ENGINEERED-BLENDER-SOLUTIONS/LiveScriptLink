@@ -9,7 +9,7 @@ Blender addon that allows you to link internal text blocks to external files. Th
 - **Configurable Timer**: Choose between constant polling or a delay timer.
 
 ## Installation
-1. Download the [Latest Release](https://github.com/Erisol254/LiveScriptLink/releases) (ZIP).
+1. Download the [Latest Release](https://github.com/OEBS-OVER-ENGINEERED-BLENDER-SOLUTIONS/LiveScriptLink/releases) (ZIP).
 2. Open Blender.
 3. Go to `Edit > Preferences > Add-ons`.
 4. Click `Install...` and select the ZIP file.
