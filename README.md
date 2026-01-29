@@ -11,6 +11,11 @@ Blender addon that allows you to link internal text blocks to external files. Th
 
 ## Release Notes
 
+### v1.5
+- **Sync Fix**: Added `bpy.ops.text.resolve_conflict(resolution='RELOAD')` to resolve the "File Modified Outside" warning and ensure seamless syncing.
+- **Improved Reliability**: Ensuring text block file paths are correctly set before conflict resolution.
+- **Version Bump**: Bumped version to 1.5.
+
 ### v1.4
 - **Integrated Auto-Updater**: Check for and install updates directly from Blender’s Preferences (powered by CGCookie's library).
 - **Structural Overhaul**: Restructured the addon into a professional folder-based package.
